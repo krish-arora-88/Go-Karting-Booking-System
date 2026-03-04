@@ -39,17 +39,6 @@ export default function DashboardPage() {
     if (hasHydrated && !isAuthenticated) router.push('/');
   }, [hasHydrated, isAuthenticated, router]);
 
-  useEffect(() => {
-    if (activeTab !== 'available') return;
-    const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
-    const es = new EventSource(`${API}/api/v1/slots/stream?date=${selectedDate}`);
-    es.addEventListener('slot-update', () => {
-      queryClient.invalidateQueries({ queryKey: ['slots', selectedDate] });
-    });
-    es.onerror = () => es.close();
-    return () => es.close();
-  }, [selectedDate, activeTab, queryClient]);
-
   const { data: slots = [], isLoading: slotsLoading, isFetching: slotsFetching } = useQuery({
     queryKey: ['slots', selectedDate],
     queryFn: () => bookingService.getSlots(selectedDate),

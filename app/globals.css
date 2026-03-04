@@ -45,7 +45,6 @@ body::after {
   left: 0;
   right: 0;
   height: 42%;
-  perspective: 220px;
   overflow: hidden;
 }
 
@@ -55,10 +54,10 @@ body::after {
   height: 200%;
   left: -50%;
   background-image:
-    linear-gradient(rgba(0, 207, 255, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 207, 255, 0.12) 1px, transparent 1px);
+    linear-gradient(rgba(0, 207, 255, 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 207, 255, 0.15) 1px, transparent 1px);
   background-size: 60px 60px;
-  transform: rotateX(65deg);
+  transform: perspective(600px) rotateX(65deg);
   transform-origin: center top;
   animation: gridScroll 20s linear infinite;
 }

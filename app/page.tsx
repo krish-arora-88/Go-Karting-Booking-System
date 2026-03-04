@@ -44,7 +44,8 @@ export default function HomePage() {
       }
       router.push('/dashboard')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'AUTH FAILED')
+      const msg = err instanceof Error ? err.message : 'AUTH FAILED'
+      toast.error(msg === 'Failed to fetch' ? 'Cannot reach server — backend offline?' : msg)
     } finally {
       setIsLoading(false)
     }

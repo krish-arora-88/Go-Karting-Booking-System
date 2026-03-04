@@ -1,0 +1,8 @@
+# Profile: no-kafka
+# Disables all Kafka auto-configuration so the app starts without a Kafka broker.
+# KafkaConfig and OutboxPoller are skipped via @Profile("!no-kafka").
+# Outbox events accumulate in the DB but are not forwarded — acceptable for prod-lite.
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration

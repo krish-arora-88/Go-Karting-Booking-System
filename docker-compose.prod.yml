@@ -1,0 +1,64 @@
+version: "3.9"
+
+# Production-lite stack — Postgres + Redis + Spring Boot only.
+# Kafka, Zookeeper, Prometheus, and Grafana are omitted.
+# The `no-kafka` Spring profile disables Kafka auto-config and the OutboxPoller.
+#
+# Required environment variables (set in your deploy environment or a .env file):
+#   DB_PASSWORD   — Postgres password
+#   JWT_SECRET    — HS512 secret, minimum 64 characters
+#   CORS_ORIGINS  — comma-separated allowed origins, e.g. https://apex-racing-gokarting.vercel.app
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gokarting
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d gokarting"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_NAME: gokarting
+      DB_USER: app
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://apex-racing-gokarting.vercel.app}
+      SPRING_PROFILES_ACTIVE: no-kafka
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

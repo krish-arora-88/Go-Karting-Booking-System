@@ -54,3 +54,4 @@ backend/logs/
 
 # Test screenshots
 /screenshots/
+.vercel

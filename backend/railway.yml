@@ -1,9 +1,0 @@
-version: 1
-services:
-  - name: go-karting-backend
-    build:
-      buildCommand: ./mvnw clean install -DskipTests
-      startCommand: java -jar target/booking-system-backend-0.0.1-SNAPSHOT.jar
-    env:
-      - PORT=$PORT
-      - JAVA_OPTS=-Xmx512m 

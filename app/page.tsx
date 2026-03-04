@@ -1,239 +1,174 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { Car, Clock, Users, CheckCircle } from 'lucide-react';
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/Button'
+import { authService } from '@/services/authService'
+import toast from 'react-hot-toast'
 
-export default function LandingPage() {
-  const [showLogin, setShowLogin] = useState(false);
-  const [showRegister, setShowRegister] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const router = useRouter();
+type AuthMode = 'login' | 'signup'
 
-  const handleAuth = async (endpoint: string, username: string, password: string) => {
-    setLoading(true);
-    setMessage('');
+export default function HomePage() {
+  const router = useRouter()
+  const [mode, setMode] = useState<AuthMode>('login')
+  const [isLoading, setIsLoading] = useState(false)
+  const [form, setForm] = useState({ username: '', password: '', confirm: '' })
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
+  const update = (field: string, value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }))
+    setErrors(prev => ({ ...prev, [field]: '' }))
+  }
+
+  const validate = (): boolean => {
+    const e: Record<string, string> = {}
+    if (!form.username.trim()) e.username = 'required'
+    if (!form.password) e.password = 'required'
+    else if (form.password.length < 5) e.password = 'min 5 chars'
+    if (mode === 'signup' && form.password !== form.confirm) e.confirm = 'passwords differ'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!validate()) return
+    setIsLoading(true)
     try {
-      const response = await fetch(`/api/auth/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        localStorage.setItem('token', data.data.token);
-        localStorage.setItem('username', username);
-        setMessage(data.message);
-        setTimeout(() => router.push('/dashboard'), 1000);
+      if (mode === 'login') {
+        await authService.login(form.username, form.password)
+        toast.success('ACCESS GRANTED')
       } else {
-        setMessage(data.message);
+        await authService.register(form.username, `${form.username}@example.com`, form.password)
+        toast.success('PLAYER REGISTERED')
       }
-    } catch (error) {
-      setMessage('Network error. Please try again.');
+      router.push('/dashboard')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'AUTH FAILED')
     } finally {
-      setLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
-  const AuthForm = ({ type }: { type: 'login' | 'register' }) => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
+  return (
+    <div className="relative min-h-screen overflow-hidden flex flex-col" style={{ background: 'var(--bg)' }}>
 
-    const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      handleAuth(type, username, password);
-    };
+      {/* Hero content */}
+      <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-4 pb-[42%]">
 
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-          <h2 className="text-2xl font-bold mb-6 text-center">
-            {type === 'login' ? 'Sign In' : 'Create Account'}
-          </h2>
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Logo */}
+        <div className="mb-8 text-center">
+          <div
+            className="font-orbitron font-black text-4xl sm:text-5xl text-neon-cyan"
+            style={{ color: 'var(--cyan)' }}
+          >
+            ◈ APEX RACING
+          </div>
+          <div className="font-mono text-xs tracking-[0.3em] mt-2" style={{ color: 'var(--dim)' }}>
+            GO-KART BOOKING SYSTEM
+          </div>
+        </div>
+
+        {/* Terminal card */}
+        <div
+          className="relative w-full max-w-sm p-6"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        >
+          <span className="bracket-corner tl" />
+          <span className="bracket-corner tr" />
+          <span className="bracket-corner bl" />
+          <span className="bracket-corner br" />
+
+          {/* Mode tabs */}
+          <div className="flex mb-6 border-b" style={{ borderColor: 'var(--border)' }}>
+            {(['login', 'signup'] as AuthMode[]).map(m => (
+              <button
+                key={m}
+                onClick={() => { setMode(m); setErrors({}) }}
+                className="flex-1 pb-2 font-orbitron text-[10px] tracking-widest uppercase transition-colors"
+                style={{
+                  color: mode === m ? 'var(--cyan)' : 'var(--dim)',
+                  borderBottom: mode === m ? '1px solid var(--cyan)' : '1px solid transparent',
+                  marginBottom: '-1px',
+                }}
+              >
+                {m === 'login' ? 'SIGN IN' : 'NEW PLAYER'}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Username */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email/Username
+              <label className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'var(--dim)' }}>
+                USERNAME
               </label>
-                             <input
-                 type="text"
-                 value={username}
-                 onChange={(e) => setUsername(e.target.value)}
-                 className="input-field"
-                 required
-                 minLength={5}
-               />
+              <input
+                className="tron-input mt-1"
+                value={form.username}
+                onChange={e => update('username', e.target.value)}
+                placeholder="enter handle"
+                autoComplete="username"
+              />
+              {errors.username && (
+                <p className="font-mono text-[10px] mt-1" style={{ color: 'var(--pink)' }}>✕ {errors.username}</p>
+              )}
             </div>
-            
+
+            {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
+              <label className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'var(--dim)' }}>
+                PASSWORD
               </label>
-                             <input
-                 type="password"
-                 value={password}
-                 onChange={(e) => setPassword(e.target.value)}
-                 className="input-field"
-                 required
-                 minLength={5}
-               />
+              <input
+                className="tron-input mt-1"
+                type="password"
+                value={form.password}
+                onChange={e => update('password', e.target.value)}
+                placeholder="••••••••"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              />
+              {errors.password && (
+                <p className="font-mono text-[10px] mt-1" style={{ color: 'var(--pink)' }}>✕ {errors.password}</p>
+              )}
             </div>
-            
-            {message && (
-              <div className={`text-sm p-2 rounded ${
-                message.includes('successful') 
-                  ? 'bg-green-100 text-green-700' 
-                  : 'bg-red-100 text-red-700'
-              }`}>
-                {message}
+
+            {/* Confirm (signup only) */}
+            {mode === 'signup' && (
+              <div>
+                <label className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'var(--dim)' }}>
+                  CONFIRM
+                </label>
+                <input
+                  className="tron-input mt-1"
+                  type="password"
+                  value={form.confirm}
+                  onChange={e => update('confirm', e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                />
+                {errors.confirm && (
+                  <p className="font-mono text-[10px] mt-1" style={{ color: 'var(--pink)' }}>✕ {errors.confirm}</p>
+                )}
               </div>
             )}
-            
-            <div className="flex gap-3">
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-primary flex-1"
-              >
-                {loading ? 'Processing...' : (type === 'login' ? 'Sign In' : 'Register')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowLogin(false);
-                  setShowRegister(false);
-                  setMessage('');
-                }}
-                className="btn-secondary"
-              >
-                Cancel
-              </button>
-            </div>
+
+            <Button
+              type="submit"
+              variant="cyan"
+              disabled={isLoading}
+              className="w-full mt-2 text-[10px]"
+            >
+              {isLoading ? '...' : mode === 'login' ? 'ENTER RACE ▶' : 'REGISTER PLAYER +'}
+            </Button>
           </form>
         </div>
       </div>
-    );
-  };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600">
-      {/* Hero Background */}
-      <div className="absolute inset-0 bg-black bg-opacity-30"></div>
-      
-      {/* Navigation */}
-      <nav className="relative z-10 p-6">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <Car className="w-8 h-8 text-white" />
-            <span className="text-xl font-bold text-white">GoKart Pro</span>
-          </div>
-          
-          <div className="space-x-4">
-            <button 
-              onClick={() => setShowLogin(true)}
-              className="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg hover:bg-opacity-30 transition-all"
-            >
-              Sign In
-            </button>
-            <button 
-              onClick={() => setShowRegister(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all"
-            >
-              Get Started
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-20 pb-32">
-        <div className="text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
-            Book Your
-            <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-              {' '}Racing Experience
-            </span>
-          </h1>
-          
-          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Experience the thrill of go-kart racing with our modern booking system. 
-            Choose your time slot, gather your friends, and get ready for an adrenaline-fueled adventure!
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button 
-              onClick={() => setShowRegister(true)}
-              className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:from-orange-600 hover:to-red-700 transition-all transform hover:scale-105"
-            >
-              Book Now
-            </button>
-            <button 
-              onClick={() => setShowLogin(true)}
-              className="bg-white bg-opacity-20 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-opacity-30 transition-all"
-            >
-              Existing User
-            </button>
-          </div>
-        </div>
+      {/* Perspective grid floor */}
+      <div className="grid-floor-container">
+        <div className="grid-floor-inner" />
       </div>
-
-      {/* Features Section */}
-      <div className="relative z-10 bg-white bg-opacity-10 backdrop-blur-lg">
-        <div className="max-w-7xl mx-auto px-6 py-16">
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <Clock className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">24 Time Slots</h3>
-              <p className="text-blue-100">
-                Choose from 24 available time slots throughout the day, 
-                each lasting 30 minutes of pure racing excitement.
-              </p>
-            </div>
-            
-            <div className="text-center">
-              <Users className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">Up to 10 Racers</h3>
-              <p className="text-blue-100">
-                Each time slot accommodates up to 10 racers, perfect for 
-                groups, parties, or competitive racing sessions.
-              </p>
-            </div>
-            
-            <div className="text-center">
-              <CheckCircle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">Easy Management</h3>
-              <p className="text-blue-100">
-                Simple booking and cancellation system with real-time 
-                availability updates and booking history.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Demo Section */}
-      <div className="relative z-10 max-w-4xl mx-auto px-6 py-16 text-center">
-        <h2 className="text-3xl font-bold text-white mb-4">Quick Demo</h2>
-        <p className="text-blue-100 mb-6">
-          Want to see how it works? Try logging in with these demo credentials:
-        </p>
-        <div className="bg-white bg-opacity-20 backdrop-blur-lg rounded-lg p-6 max-w-md mx-auto">
-          <div className="text-white space-y-2">
-            <p><strong>Username:</strong> admin</p>
-            <p><strong>Password:</strong> admin</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Auth Modals */}
-      {showLogin && <AuthForm type="login" />}
-      {showRegister && <AuthForm type="register" />}
     </div>
-  );
-} 
+  )
+}

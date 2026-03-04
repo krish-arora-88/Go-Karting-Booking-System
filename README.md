@@ -1,75 +1,230 @@
-# <center>My Personal Project</center>
+# 🏎️ Go-Karting Booking System
 
-<u><h3><center>GoKarting Booking System</center></h3></u>
+A modern, full-stack web application for managing go-kart racing bookings. Built with Next.js 14, TypeScript, and Tailwind CSS, optimized for Vercel deployment.
 
-<h4>What will the application do?</h4>
-<p>Its a GUI application using which you will be able to book available time slots to go GoKarting with your friends.
-</p>
+![Demo Screenshot](https://via.placeholder.com/800x400/3B82F6/FFFFFF?text=GoKart+Pro+Dashboard)
 
-<h4>Who will use it?</h4>
+## ✨ Features
 
-* The gokarting booking system application can be used by the staff members or administrators of a gokarting facility to
-manage and organize bookings for customers who want to participate in gokarting races. Customers can either book
-in-person or online, depending on the facility's setup.
+### 🎯 Core Functionality
+- **User Authentication**: Secure login/registration with JWT tokens
+- **Time Slot Management**: 24 time slots (12:00-23:30) with 30-minute intervals
+- **Booking System**: Book and cancel racing slots for up to 10 racers per slot
+- **Real-time Updates**: Live availability tracking and booking status
+- **Event Logging**: Complete audit trail of all booking activities
+- **Data Persistence**: Automatic saving and loading of bookings and user data
 
-* Additionally, the application could potentially be made available to customers themselves, allowing them to browse
-available time slots and make bookings online. This would require a user interface that is accessible and easy to use
-for customers.
+### 🎨 Modern UI/UX
+- **Responsive Design**: Optimized for desktop, tablet, and mobile
+- **Beautiful Landing Page**: Engaging hero section with gradient backgrounds
+- **Interactive Dashboard**: Intuitive booking management interface
+- **Modal System**: Clean popup forms for booking and cancellation
+- **Real-time Feedback**: Success/error messages with auto-dismiss
+- **Professional Styling**: Modern cards, buttons, and layouts
 
-* Overall, the gokarting booking system is designed to streamline the process of managing bookings for gokarting races,
-making it easier for both staff members and customers to book, manage, and organize races.
+### 🛠️ Technical Features
+- **Next.js 14**: Latest App Router with server-side rendering
+- **TypeScript**: Full type safety and IntelliSense support
+- **Tailwind CSS**: Utility-first styling with custom components
+- **API Routes**: RESTful backend with proper error handling
+- **JWT Authentication**: Secure token-based authentication
+- **JSON Storage**: File-based data persistence (easily upgradeable to database)
+- **Vercel Ready**: Optimized configuration for seamless deployment
 
-<h4>Why is this project of interest to you?</h4>
+## 🚀 Quick Start
 
-* I love F1 and I love Go Karting, but the places in Vancouver where I usually go strangely don't have online booking
-systems, so you have to put in your information and phone number, so they can call you and help you
-book the time slot you prefer, and then you call them back to cancel it and so on.
+### Demo Access
+Try the live demo with these credentials:
+- **Username**: `admin`
+- **Password**: `admin`
 
-<h4>User Stories</h4>
+### Local Development
 
-* As a user, I want to be able to Create an account.
-* As a user, I want to be able to log in.
-* As a user, I want to be able to see available time slots.
-* As a user, I want to be able to see the remaining racer slots in a time slot.
-* As a user, I want to be able to choose my race time slot.
-* As a user, I want to be able to make a booking on my chosen time slot.
-* As a user, I want to be able to make multiple bookings.
-* As a user, I want to be able to cancel my booking.
-* As a user, I want to be able to see my bookings next time I log in.
+1. **Clone and Install**
+   ```bash
+   git clone <your-repo-url>
+   cd go-karting-booking-system
+   npm install
+   ```
 
-<h4>Instructions for Grader</h4>
+2. **Environment Setup**
+   ```bash
+   cp .env.local.example .env.local
+   # Edit .env.local with your JWT secret
+   ```
 
-* You can generate the first required action related to adding Xs to a Y by booking a slot multiple times.
-* You can generate the second required action related to adding Xs to a Y by cancelling a booking.
-* You can locate my visual component by launching the landing page.
-* You can save the state of my application by clicking on Save in Main Menu.
-* You can reload the state of my application by clicking on Load in Main Menu.
+3. **Run Development Server**
+   ```bash
+   npm run dev
+   ```
 
-<h4>Phase 4: Task 2</h4>
+4. **Open Browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
-2023-04-11T16:36:56.242590
-Time Slot Booked, Racer: Gregor, Slot: 13:30 - 14:00
+## 📁 Project Structure
 
-2023-04-11T16:37:43.589810
-Time Slot Booked, Racer: Steven, Slot: 14:00 - 14:30
+```
+├── app/                      # Next.js App Router
+│   ├── api/                  # API Routes
+│   │   ├── auth/            # Authentication endpoints
+│   │   ├── bookings/        # Booking management
+│   │   └── logs/            # Event logging
+│   ├── dashboard/           # Protected dashboard page
+│   ├── globals.css          # Global styles
+│   ├── layout.tsx           # Root layout
+│   └── page.tsx             # Landing page
+├── lib/                     # Utility libraries
+│   ├── auth.ts              # JWT authentication
+│   ├── storage.ts           # Data persistence
+│   ├── timeSlots.ts         # Time slot management
+│   └── types.ts             # TypeScript definitions
+├── data/                    # Runtime data storage
+│   ├── users.json           # User accounts
+│   ├── bookings.json        # Time slot bookings
+│   └── logs.json            # Event logs
+└── public/                  # Static assets
+```
 
-2023-04-11T16:37:50.773791
- Booking cancelled for Racer:Gregor
+## 🔌 API Endpoints
 
-<h4>Phase 4: Task 3</h4>
+### Authentication
+- `POST /api/auth/login` - User login
+- `POST /api/auth/register` - New user registration
 
-* I'm not super proud of the current design of my program and to be very honest, I just want to scrap it and do it all 
-over again.
-* Over the course of doing this project, I learnt a lot of new things and some of which I couldn't implement because I 
-had already done that using a different method, which may not be as efficient or as clean. But overall, this project was
-one thing I was having fun with the entire term, I was always thinking of how to improve it and what other
-functionalities I could add.
-* That brings us on to what all I had thought of doing but couldn't do because of the time constraint:
-* I could have added functionalities like Forget Password security questions, Being able to select dates for the
-booking, maybe some feel-good features, etc.
-* As far as refactoring is concerned, I could have refactored the following:
-* Helper methods: There are several methods in this code that do more than one thing. To make the code easier to read
-and understand, I could extract some of the functionality into separate methods. For example, I could extract the code
-that sets up the layout of the main menu into a separate method.
-* Reduce coupling: The MainMenu class has too many responsibilities. To reduce coupling and make the code easier to
-maintain, I could extract some of the responsibilities into separate classes.
+### Bookings
+- `GET /api/bookings` - Fetch all time slots
+- `POST /api/bookings` - Book or cancel a slot
+
+### Logs
+- `GET /api/logs` - Retrieve event logs
+
+## 🎮 Usage Guide
+
+### For Users
+1. **Landing Page**: Sign up or log in to access the system
+2. **Dashboard**: View available time slots and current bookings
+3. **Book Slot**: Click "Book a Slot" and select your preferred time
+4. **Cancel Booking**: Use "Cancel Booking" to remove reservations
+5. **View History**: Check "View Logs" for booking activity
+
+### For Administrators
+- Default admin account: `admin` / `admin`
+- Full access to all booking operations
+- Complete event log access
+- User registration management
+
+## 🚀 Deployment on Vercel
+
+### One-Click Deploy
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-username/go-karting-booking-system)
+
+### Manual Deployment
+1. **Connect Repository**
+   ```bash
+   vercel --prod
+   ```
+
+2. **Set Environment Variables**
+   In Vercel Dashboard > Settings > Environment Variables:
+   ```
+   JWT_SECRET=your-production-jwt-secret-key-here
+   NODE_ENV=production
+   ```
+
+3. **Deploy**
+   ```bash
+   vercel deploy --prod
+   ```
+
+## 🛡️ Security Features
+
+- **JWT Authentication**: Secure token-based auth with expiration
+- **Password Hashing**: bcrypt for secure password storage
+- **Input Validation**: Server-side validation for all endpoints
+- **Protected Routes**: Dashboard requires valid authentication
+- **Environment Variables**: Sensitive data in environment config
+
+## 🔧 Configuration
+
+### Environment Variables
+```bash
+JWT_SECRET=your-secret-key-here    # JWT signing secret
+NODE_ENV=development               # Environment mode
+```
+
+### Time Slot Configuration
+Default: 24 slots from 12:00-23:30 (30-min intervals, 10 racers each)
+
+Modify in `lib/timeSlots.ts`:
+```typescript
+export function generateTimeSlots(): TimeSlot[] {
+  // Customize start time, duration, capacity, etc.
+}
+```
+
+## 🎯 Features Comparison
+
+| Feature | Original Java App | New Web App |
+|---------|------------------|-------------|
+| User Interface | Swing GUI | Modern Web UI |
+| Authentication | Local storage | JWT + Secure storage |
+| Time Slots | 24 slots | 24 slots (configurable) |
+| Capacity | 10 racers | 10 racers (configurable) |
+| Data Persistence | JSON files | JSON files (DB ready) |
+| Deployment | Desktop only | Web + Mobile responsive |
+| Event Logging | Console output | Persistent logs with UI |
+| Real-time Updates | Manual refresh | Automatic updates |
+
+## 🚀 Future Enhancements
+
+### Planned Features
+- [ ] Database integration (PostgreSQL/MongoDB)
+- [ ] Email notifications for bookings
+- [ ] Calendar integration
+- [ ] Payment processing
+- [ ] Multiple date support
+- [ ] Recurring bookings
+- [ ] Admin dashboard with analytics
+- [ ] SMS notifications
+- [ ] Social login (Google, Facebook)
+- [ ] Booking history export
+
+### Technical Improvements
+- [ ] Redis caching
+- [ ] Rate limiting
+- [ ] Advanced logging with Winston
+- [ ] Monitoring with Sentry
+- [ ] CI/CD pipeline
+- [ ] Unit and integration tests
+- [ ] Performance optimization
+- [ ] PWA capabilities
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **Documentation**: Check this README and inline code comments
+- **Issues**: Use GitHub Issues for bug reports and feature requests
+- **Discussions**: GitHub Discussions for questions and ideas
+
+## 🙏 Acknowledgments
+
+- Original Java application for functionality inspiration
+- Next.js team for the amazing framework
+- Tailwind CSS for the utility-first styling approach
+- Lucide React for beautiful icons
+- Vercel for seamless deployment platform
+
+---
+
+**Built with ❤️ using Next.js 14, TypeScript, and Tailwind CSS**

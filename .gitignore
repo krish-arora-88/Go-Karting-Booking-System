@@ -51,3 +51,6 @@ backend/logs/
 
 # MCP local overrides (commit .mcp.json but not local credential files)
 .mcp.local.json
+
+# Test screenshots
+/screenshots/

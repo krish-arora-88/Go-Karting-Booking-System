@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LogOut, Zap, BookOpen } from 'lucide-react';
@@ -26,14 +26,13 @@ function buildDateStrip() {
   });
 }
 
-const DATE_STRIP = buildDateStrip();
-
 export default function DashboardPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthenticated, user, hasHydrated } = useAuthStore();
+  const DATE_STRIP = useMemo(() => buildDateStrip(), []);
   const [activeTab, setActiveTab] = useState<Tab>('available');
-  const [selectedDate, setSelectedDate] = useState(DATE_STRIP[0].value);
+  const [selectedDate, setSelectedDate] = useState(() => buildDateStrip()[0].value);
   const [bookingSlot, setBookingSlot] = useState<TimeSlot | null>(null);
 
   useEffect(() => {

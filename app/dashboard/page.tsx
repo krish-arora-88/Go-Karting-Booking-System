@@ -2,475 +2,305 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Car, 
-  Clock, 
-  Users, 
-  Plus, 
-  X, 
-  Calendar,
-  FileText,
-  LogOut,
-  User
-} from 'lucide-react';
-import { TimeSlot, EventLog } from '@/lib/types';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { LogOut, Zap, BookOpen } from 'lucide-react';
+import { addDays, format } from 'date-fns';
+import { TimeSlotCard } from '@/components/booking/TimeSlotCard';
+import { BookingModal } from '@/components/booking/BookingModal';
+import { bookingService, TimeSlot } from '@/services/bookingService';
+import { authService } from '@/services/authService';
+import { useAuthStore } from '@/store/authStore';
+import toast from 'react-hot-toast';
 
-export default function Dashboard() {
-  const [user, setUser] = useState<string>('');
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-  const [logs, setLogs] = useState<EventLog[]>([]);
-  const [showBookingModal, setShowBookingModal] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showLogsModal, setShowLogsModal] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
-  const [racerName, setRacerName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+type Tab = 'available' | 'bookings';
+
+function buildDateStrip() {
+  const today = new Date();
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(today, i);
+    return {
+      value: format(d, 'yyyy-MM-dd'),
+      day: format(d, 'EEE').toUpperCase(),
+      date: format(d, 'dd'),
+    };
+  });
+}
+
+const DATE_STRIP = buildDateStrip();
+
+export default function DashboardPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { isAuthenticated, user, hasHydrated } = useAuthStore();
+  const [activeTab, setActiveTab] = useState<Tab>('available');
+  const [selectedDate, setSelectedDate] = useState(DATE_STRIP[0].value);
+  const [bookingSlot, setBookingSlot] = useState<TimeSlot | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const username = localStorage.getItem('username');
-    
-    if (!token || !username) {
-      router.push('/');
-      return;
-    }
-    
-    setUser(username);
-    fetchTimeSlots();
-  }, [router]);
+    if (hasHydrated && !isAuthenticated) router.push('/');
+  }, [hasHydrated, isAuthenticated, router]);
 
-  const fetchTimeSlots = async () => {
-    const token = localStorage.getItem('token');
-    try {
-      const response = await fetch('/api/bookings', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        console.log('Fetched time slots:', data.data); // Debug log
-        setTimeSlots(data.data);
-      } else {
-        setMessage('Failed to load time slots');
-      }
-    } catch (error) {
-      setMessage('Error loading time slots');
-    }
-  };
+  useEffect(() => {
+    if (activeTab !== 'available') return;
+    const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
+    const es = new EventSource(`${API}/api/v1/slots/stream?date=${selectedDate}`);
+    es.addEventListener('slot-update', () => {
+      queryClient.invalidateQueries({ queryKey: ['slots', selectedDate] });
+    });
+    es.onerror = () => es.close();
+    return () => es.close();
+  }, [selectedDate, activeTab, queryClient]);
 
-  const fetchLogs = async () => {
-    const token = localStorage.getItem('token');
-    try {
-      const response = await fetch('/api/logs', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        setLogs(data.data);
-      }
-    } catch (error) {
-      console.error('Error loading logs');
-    }
-  };
+  const { data: slots = [], isLoading: slotsLoading, isFetching: slotsFetching } = useQuery({
+    queryKey: ['slots', selectedDate],
+    queryFn: () => bookingService.getSlots(selectedDate),
+    refetchInterval: 30_000,
+  });
 
-  const handleBooking = async () => {
-    if (!selectedSlot || !racerName.trim()) return;
-    
-    setLoading(true);
-    const token = localStorage.getItem('token');
-    
-    try {
-      const response = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          action: 'book',
-          startTime: selectedSlot.startTime,
-          racerName: racerName.trim(),
-        }),
-      });
-      
-      const data = await response.json();
-      setMessage(data.message);
-      
-      if (data.success) {
-        fetchTimeSlots();
-        setShowBookingModal(false);
-        setRacerName('');
-        setSelectedSlot(null);
-      }
-    } catch (error) {
-      setMessage('Error booking slot');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: myBookings = [], isLoading: bookingsLoading } = useQuery({
+    queryKey: ['my-bookings'],
+    queryFn: () => bookingService.getMyBookings(),
+  });
 
-  const handleCancellation = async () => {
-    if (!racerName.trim()) return;
-    
-    setLoading(true);
-    const token = localStorage.getItem('token');
-    
-    try {
-      // Find slots with this racer name
-      const slotsWithRacer = timeSlots.filter(slot => 
-        slot.bookedRacers.includes(racerName.trim())
-      );
-      
-      if (slotsWithRacer.length === 0) {
-        setMessage(`No bookings found for ${racerName}`);
-        setLoading(false);
-        return;
-      }
-      
-      // Cancel the first matching booking
-      const slotToCancel = slotsWithRacer[0];
-      const response = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          action: 'cancel',
-          startTime: slotToCancel.startTime,
-          racerName: racerName.trim(),
-        }),
-      });
-      
-      const data = await response.json();
-      setMessage(data.message);
-      
-      if (data.success) {
-        fetchTimeSlots();
-        setShowCancelModal(false);
-        setRacerName('');
-      }
-    } catch (error) {
-      setMessage('Error canceling booking');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const bookMutation = useMutation({
+    mutationFn: ({ slotId, date, racerCount, racerNames }: {
+      slotId: string; date: string; racerCount: number; racerNames: string[];
+    }) => bookingService.bookSlot(slotId, date, racerCount, racerNames, crypto.randomUUID()),
+    onSuccess: () => {
+      toast.success('SLOT BOOKED');
+      setBookingSlot(null);
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
+      queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
+  const cancelMutation = useMutation({
+    mutationFn: (bookingId: string) => bookingService.cancelBooking(bookingId),
+    onSuccess: () => {
+      toast.success('BOOKING CANCELLED');
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
+      queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const handleLogout = async () => {
+    await authService.logout();
     router.push('/');
   };
 
-  const availableSlots = timeSlots.filter(slot => slot.remainingSlots > 0);
-  const fullyBookedSlots = timeSlots.filter(slot => slot.remainingSlots === 0);
+  if (!hasHydrated || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center font-orbitron text-sm"
+        style={{ background: 'var(--bg)', color: 'var(--dim)' }}>
+        LOADING...
+      </div>
+    );
+  }
+
+  const availableSlots = slots.filter(s => s.available);
+
+  const navItems: { tab: Tab; icon: React.ReactNode; label: string; count?: number }[] = [
+    { tab: 'available', icon: <Zap size={14} />, label: 'SLOTS' },
+    { tab: 'bookings', icon: <BookOpen size={14} />, label: 'BOOKINGS', count: myBookings.length },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Car className="w-8 h-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">GoKart Pro Dashboard</h1>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-gray-600">
-                <User className="w-5 h-5" />
-                <span>Welcome, {user}</span>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-2 text-red-600 hover:text-red-700"
-              >
-                <LogOut className="w-5 h-5" />
-                <span>Logout</span>
-              </button>
-            </div>
+    <div className="min-h-screen flex" style={{ background: 'var(--bg)' }}>
+
+      {/* BookingModal */}
+      {bookingSlot && (
+        <BookingModal
+          slot={bookingSlot}
+          date={selectedDate}
+          isPending={bookMutation.isPending}
+          onConfirm={(racerCount, racerNames) =>
+            bookMutation.mutate({ slotId: bookingSlot.id, date: selectedDate, racerCount, racerNames })
+          }
+          onClose={() => setBookingSlot(null)}
+        />
+      )}
+
+      {/* Sidebar (desktop) */}
+      <aside
+        className="hidden md:flex flex-col w-48 flex-shrink-0 border-r"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+      >
+        <div className="px-4 py-5 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="font-orbitron font-black text-sm" style={{ color: 'var(--cyan)' }}>
+            ◈ APEX
+          </div>
+          <div className="font-mono text-[9px] tracking-widest mt-0.5" style={{ color: 'var(--dim)' }}>
+            RACE CONTROL
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Message Display */}
-        {message && (
-          <div className={`mb-6 p-4 rounded-lg ${
-            message.includes('successful') || message.includes('confirmed') || message.includes('cancelled')
-              ? 'bg-green-100 text-green-700'
-              : 'bg-red-100 text-red-700'
-          }`}>
-            {message}
-            <button 
-              onClick={() => setMessage('')}
-              className="ml-2 text-gray-500 hover:text-gray-700"
+        <nav className="flex-1 py-4">
+          {navItems.map(({ tab, icon, label, count }) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex items-center gap-2 w-full px-4 py-3 font-orbitron text-[10px] tracking-widest transition-all ${
+                activeTab === tab ? 'nav-item-active' : 'nav-item-inactive'
+              }`}
             >
-              ×
-            </button>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <button
-            onClick={() => setShowBookingModal(true)}
-            className="btn-primary flex items-center justify-center space-x-2 py-4"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Book a Slot</span>
-          </button>
-          
-          <button
-            onClick={() => setShowCancelModal(true)}
-            className="btn-secondary flex items-center justify-center space-x-2 py-4"
-          >
-            <X className="w-5 h-5" />
-            <span>Cancel Booking</span>
-          </button>
-          
-          <button
-            onClick={() => {
-              fetchLogs();
-              setShowLogsModal(true);
-            }}
-            className="btn-secondary flex items-center justify-center space-x-2 py-4"
-          >
-            <FileText className="w-5 h-5" />
-            <span>View Logs</span>
-          </button>
-          
-          <button
-            onClick={fetchTimeSlots}
-            className="btn-secondary flex items-center justify-center space-x-2 py-4"
-          >
-            <Calendar className="w-5 h-5" />
-            <span>Refresh Slots</span>
-          </button>
-        </div>
-
-        {/* Available Slots */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-            <Clock className="w-5 h-5 mr-2 text-green-600" />
-            Available Time Slots ({availableSlots.length})
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {availableSlots.map((slot, index) => (
-              <div key={index} className="card hover:shadow-lg transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-semibold text-lg text-gray-900">
-                    {slot.startTime} - {slot.endTime}
-                  </span>
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
-                    Available
-                  </span>
-                </div>
-                
-                <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
-                  <div className="flex items-center">
-                    <Users className="w-4 h-4 mr-1" />
-                    <span>{slot.remainingSlots} slots left</span>
-                  </div>
-                </div>
-                
-                {slot.bookedRacers.length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-sm font-medium text-gray-700 mb-1">Booked Racers:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {slot.bookedRacers.map((racer, i) => (
-                        <span key={i} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                          {racer}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <button
-                  onClick={() => {
-                    setSelectedSlot(slot);
-                    setShowBookingModal(true);
-                  }}
-                  className="w-full btn-primary text-sm py-2"
+              {icon}
+              {label}
+              {count !== undefined && count > 0 && (
+                <span
+                  className="ml-auto font-mono text-[9px] px-1.5 py-0.5"
+                  style={{ background: 'rgba(0,207,255,0.15)', color: 'var(--cyan)' }}
                 >
-                  Book This Slot
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+                  {count}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
 
-        {/* Fully Booked Slots */}
-        {fullyBookedSlots.length > 0 && (
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-              <X className="w-5 h-5 mr-2 text-red-600" />
-              Fully Booked Slots ({fullyBookedSlots.length})
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {fullyBookedSlots.map((slot, index) => (
-                <div key={index} className="card bg-gray-50">
-                                  <div className="flex items-center justify-between mb-2">
-                  <span className="font-semibold text-lg text-gray-900">
-                    {slot.startTime} - {slot.endTime}
-                  </span>
-                  <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-sm">
-                    Full
-                  </span>
-                </div>
-                  
-                  <div className="mb-3">
-                    <p className="text-sm font-medium text-gray-700 mb-1">Booked Racers:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {slot.bookedRacers.map((racer, i) => (
-                        <span key={i} className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs">
-                          {racer}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+        <div className="p-4 border-t" style={{ borderColor: 'var(--border)' }}>
+          <p className="font-mono text-[10px] truncate mb-2" style={{ color: 'var(--dim)' }}>
+            {user?.username}
+          </p>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 font-orbitron text-[9px] tracking-widest transition-colors"
+            style={{ color: 'var(--dim)' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--pink)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--dim)')}
+          >
+            <LogOut size={12} />
+            EJECT
+          </button>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
+
+        {/* Header */}
+        <header
+          className="flex items-center justify-between px-4 md:px-6 py-4 border-b flex-shrink-0"
+          style={{ borderColor: 'var(--border)' }}
+        >
+          <div className="flex items-center gap-3">
+            <h1 className="font-orbitron font-bold text-lg" style={{ color: 'var(--white)' }}>
+              RACE CONTROL
+            </h1>
+            {slotsFetching && <span className="fetch-dot" />}
+          </div>
+          <span className="md:hidden font-mono text-xs" style={{ color: 'var(--dim)' }}>
+            {user?.username}
+          </span>
+        </header>
+
+        <div className="flex-1 px-4 md:px-6 py-5 overflow-auto">
+
+          {/* Date strip (available tab only) */}
+          {activeTab === 'available' && (
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-5">
+              {DATE_STRIP.map(({ value, day, date }) => (
+                <button
+                  key={value}
+                  onClick={() => setSelectedDate(value)}
+                  className="flex-shrink-0 flex flex-col items-center px-3 py-2 border transition-all font-orbitron text-[10px] tracking-wider"
+                  style={
+                    selectedDate === value
+                      ? { borderColor: 'var(--cyan)', background: 'rgba(0,207,255,0.1)', color: 'var(--cyan)', boxShadow: '0 0 10px rgba(0,207,255,0.2)' }
+                      : { borderColor: 'var(--border)', background: 'transparent', color: 'var(--dim)' }
+                  }
+                >
+                  <span className="text-[8px]">{day}</span>
+                  <span className="text-base font-black leading-tight">{date}</span>
+                </button>
               ))}
             </div>
-          </div>
-        )}
-      </main>
+          )}
 
-      {/* Booking Modal */}
-      {showBookingModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold mb-4">Book a Time Slot</h3>
-            
-            {selectedSlot && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <p className="font-medium">Selected Slot:</p>
-                <p>{selectedSlot.startTime} - {selectedSlot.endTime}</p>
-                <p className="text-sm text-gray-600">{selectedSlot.remainingSlots} slots remaining</p>
+          {/* Content */}
+          {(slotsLoading || bookingsLoading) ? (
+            <div className="flex justify-center py-16">
+              <div className="w-8 h-8 rounded-full border-t border-r animate-spin" style={{ borderColor: 'var(--cyan)' }} />
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+
+                {activeTab === 'available' && availableSlots.map(slot => (
+                  <TimeSlotCard
+                    key={slot.id}
+                    timeSlot={slot}
+                    onBook={() => setBookingSlot(slot)}
+                    type="available"
+                  />
+                ))}
+
+                {activeTab === 'bookings' && myBookings.map(booking => (
+                  <TimeSlotCard
+                    key={booking.id}
+                    timeSlot={{
+                      id: booking.timeSlotId,
+                      startTime: booking.startTime,
+                      endTime: booking.endTime,
+                      capacity: booking.racerCount,
+                      remaining: 0,
+                      available: false,
+                    }}
+                    onCancel={() => cancelMutation.mutate(booking.id)}
+                    type="booked"
+                    isPending={cancelMutation.isPending}
+                  />
+                ))}
               </div>
-            )}
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Racer Name
-              </label>
-              <input
-                type="text"
-                value={racerName}
-                onChange={(e) => setRacerName(e.target.value)}
-                className="input-field"
-                placeholder="Enter racer name"
-              />
-            </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={handleBooking}
-                disabled={loading || !racerName.trim()}
-                className="btn-primary flex-1"
-              >
-                {loading ? 'Booking...' : 'Confirm Booking'}
-              </button>
-              <button
-                onClick={() => {
-                  setShowBookingModal(false);
-                  setSelectedSlot(null);
-                  setRacerName('');
-                }}
-                className="btn-secondary"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Cancel Modal */}
-      {showCancelModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold mb-4">Cancel a Booking</h3>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Racer Name
-              </label>
-              <input
-                type="text"
-                value={racerName}
-                onChange={(e) => setRacerName(e.target.value)}
-                className="input-field"
-                placeholder="Enter racer name to cancel"
-              />
-            </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={handleCancellation}
-                disabled={loading || !racerName.trim()}
-                className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg flex-1"
-              >
-                {loading ? 'Canceling...' : 'Cancel Booking'}
-              </button>
-              <button
-                onClick={() => {
-                  setShowCancelModal(false);
-                  setRacerName('');
-                }}
-                className="btn-secondary"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Logs Modal */}
-      {showLogsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-96">
-            <h3 className="text-xl font-bold mb-4">Event Logs</h3>
-            
-            <div className="overflow-y-auto max-h-64 space-y-2">
-              {logs.length > 0 ? (
-                logs.map((log) => (
-                  <div key={log.id} className="p-3 bg-gray-50 rounded border-l-4 border-blue-500">
-                    <p className="text-sm">{log.description}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(log.timestamp).toLocaleString()}
-                    </p>
+              {activeTab === 'available' && availableSlots.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <div className="font-orbitron font-black text-2xl tracking-widest" style={{ color: 'var(--dim)' }}>
+                    NO RACES SCHEDULED
                   </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">No logs available</p>
+                  <div className="font-mono text-xs" style={{ color: 'var(--dim)' }}>select another date</div>
+                </div>
               )}
-            </div>
-            
-            <div className="mt-4">
-              <button
-                onClick={() => setShowLogsModal(false)}
-                className="btn-secondary w-full"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+
+              {activeTab === 'bookings' && myBookings.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <div className="font-orbitron font-black text-2xl tracking-widest" style={{ color: 'var(--dim)' }}>
+                    NO ACTIVE BOOKINGS
+                  </div>
+                  <div className="font-mono text-xs" style={{ color: 'var(--dim)' }}>head to slots to book a race</div>
+                </div>
+              )}
+            </>
+          )}
         </div>
-      )}
+      </div>
+
+      {/* Bottom tab bar (mobile) */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 flex border-t"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+      >
+        {navItems.map(({ tab, icon, label }) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className="flex-1 flex flex-col items-center py-3 gap-1 font-orbitron text-[9px] tracking-widest transition-colors"
+            style={{ color: activeTab === tab ? 'var(--cyan)' : 'var(--dim)' }}
+          >
+            {icon}
+            {label}
+          </button>
+        ))}
+        <button
+          onClick={handleLogout}
+          className="flex-1 flex flex-col items-center py-3 gap-1 font-orbitron text-[9px] tracking-widest"
+          style={{ color: 'var(--dim)' }}
+        >
+          <LogOut size={14} />
+          EJECT
+        </button>
+      </nav>
     </div>
   );
-} 
+}

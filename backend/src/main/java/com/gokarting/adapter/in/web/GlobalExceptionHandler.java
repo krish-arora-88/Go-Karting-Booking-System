@@ -3,6 +3,7 @@ package com.gokarting.adapter.in.web;
 import com.gokarting.domain.exception.*;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
@@ -62,6 +63,21 @@ public class GlobalExceptionHandler {
                 .reduce((a, b) -> a + "; " + b)
                 .orElse("Validation failed");
         return problem(HttpStatus.BAD_REQUEST, "validation-error", "Invalid Request", detail);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex) {
+        String msg = ex.getMessage() != null ? ex.getMessage() : "";
+        if (msg.contains("uq_bookings_user_slot_date")) {
+            return problem(HttpStatus.CONFLICT, "duplicate-booking", "Booking Already Exists",
+                    "You already have an active booking for this slot on this date");
+        }
+        if (msg.contains("uq_bookings_idempotency_key")) {
+            return problem(HttpStatus.CONFLICT, "duplicate-booking", "Booking Already Exists",
+                    "This booking was already submitted");
+        }
+        log.error("Data integrity violation", ex);
+        return problem(HttpStatus.CONFLICT, "constraint-violation", "Data Conflict", "A data conflict occurred");
     }
 
     @ExceptionHandler(Exception.class)

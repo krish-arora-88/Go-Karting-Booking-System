@@ -1,166 +1,157 @@
 # Architecture Overview
 
-## System Layers
-
-```
-┌─────────────────────────────────────────────────────────┐
-│               Next.js Frontend (Port 3000)               │
-│  app/page.tsx → AuthModal → /dashboard/page.tsx          │
-│  services/authService.ts  services/bookingService.ts     │
-└──────────────────────┬──────────────────────────────────┘
-                       │ HTTP (JWT Bearer tokens)
-┌──────────────────────▼──────────────────────────────────┐
-│           Spring Boot Backend (Port 8080)                │
-│  /api/auth/login   /api/auth/register                    │
-│  /api/bookings/**  ← NOT IMPLEMENTED                     │
-│  AuthService ← loginData.json                            │
-└─────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────┐
-│           Legacy Java Swing GUI (standalone)             │
-│  Main → LandingPageUI → User / MainMenu                  │
-│  MainMenu ← Bookings.json / loginData.json               │
-└─────────────────────────────────────────────────────────┘
-```
-
-The two systems (web stack and Java Swing) share the same JSON data files but have no runtime connection.
+> Updated: 2026-03-04. Reflects the fully-transformed distributed system (legacy Java Swing + flat-file JSON is gone).
 
 ---
 
-## Frontend (Next.js)
+## System Diagram
 
-### Pages
-| File | Route | Responsibility |
-|------|-------|----------------|
-| `app/page.tsx` | `/` | Landing page; triggers AuthModal |
-| `app/dashboard/page.tsx` | `/dashboard` | Booking management (authenticated) |
-| `app/layout.tsx` | (root) | Wraps all pages; adds Toaster |
-
-### Components
-| File | Responsibility |
-|------|---------------|
-| `components/ui/Button.tsx` | Reusable button (variants: default/outline/ghost) |
-| `components/auth/AuthModal.tsx` | Login/signup form modal with validation |
-| `components/booking/TimeSlotCard.tsx` | Single time slot card (available or booked) |
-
-### Services
-| File | Responsibility |
-|------|---------------|
-| `services/authService.ts` | JWT auth; reads/writes localStorage |
-| `services/bookingService.ts` | Booking CRUD via REST; attaches Bearer token |
-
-### Authentication Flow
-1. User submits AuthModal → `authService.login/register()`
-2. POST `/api/auth/login` or `/api/auth/register`
-3. JWT token returned → stored in `localStorage`
-4. Dashboard reads token on load; redirects to `/` if absent
-
-### Booking Flow (Partially Broken)
-1. Dashboard calls `bookingService.getTimeSlots()` → GET `/api/bookings/timeslots`
-2. Backend endpoint **does not exist** → request fails
-3. Book/Cancel POSTs to `/api/bookings/book` and `/api/bookings/cancel` — also missing
-
----
-
-## Backend (Spring Boot)
-
-### Package Structure
 ```
-com.gokarting/
-├── BookingSystemApplication.java   — entry point
-├── controller/
-│   └── AuthController.java         — POST /api/auth/login, /register
-├── service/
-│   └── AuthService.java            — credential validation, JWT issuance
-├── model/
-│   └── User.java                   — username + password POJO
-├── dto/
-│   ├── AuthRequest.java            — login/register request body
-│   └── AuthResponse.java           — token + username response
-├── config/
-│   └── SecurityConfig.java         — Spring Security, CORS, JWT filter chain
-└── security/                       — JwtTokenProvider, JwtAuthenticationFilter (not shown)
-```
-
-### Implemented Endpoints
-| Method | Path | Auth Required | Status |
-|--------|------|--------------|--------|
-| POST | `/api/auth/login` | No | ✅ Works |
-| POST | `/api/auth/register` | No | ✅ Works |
-| GET | `/api/health` | No | ✅ (default) |
-| GET | `/api/bookings/timeslots` | Yes | ❌ Missing |
-| POST | `/api/bookings/book` | Yes | ❌ Missing |
-| POST | `/api/bookings/cancel` | Yes | ❌ Missing |
-| GET | `/api/bookings/user` | Yes | ❌ Missing |
-
-### Data Persistence
-- `loginData.json` — array of `{username, password}` objects (BCrypt hashed)
-- `Bookings.json` — array of 24 time slot objects with `bookedRacers` arrays
-- Both files read/written directly from Java (no ORM, no DB)
-- No transactions; concurrent writes can corrupt files
-
----
-
-## Legacy Java Swing
-
-### Class Responsibilities
-| Class | Extends | Responsibility |
-|-------|---------|----------------|
-| `Main` | — | Entry point; creates LandingPageUI |
-| `LandingPageUI` | JPanel | Landing screen; opens User dialog |
-| `User` | JFrame | Login/signup UI + credential persistence |
-| `MainMenu` | JFrame | **God object**: all booking logic + UI + file I/O |
-| `TimeSlot` | — | Time slot model; calls EventLog directly |
-| `Event` | — | Immutable event record (description + timestamp) |
-| `EventLog` | — | Singleton event store; iterable |
-
-### Design Pattern Usage
-| Pattern | Where | Notes |
-|---------|-------|-------|
-| Singleton | `EventLog` | Not thread-safe |
-| Immutable Value Object | `Event` | Correct use of `final` fields |
-| Observer (informal) | EventLog iteration | Manual iteration, no formal listener |
-
-### Event Logging Flow
-```
-TimeSlot.bookSlot(name)
-  → EventLog.getInstance().logEvent(new Event("Booked: " + name))
-
-MainMenu.logs()
-  → iterates EventLog.getInstance()
-  → displays in JTextArea
+┌──────────────────────────────────────────────────────────────────┐
+│                    Next.js 14 Frontend (Port 3000)               │
+│  app/page.tsx (inline auth)  →  app/dashboard/page.tsx           │
+│  Zustand (authStore)  ·  TanStack Query v5  ·  Tailwind CSS      │
+│  services/authService.ts  ·  services/bookingService.ts          │
+└─────────────────────────┬────────────────────────────────────────┘
+                          │ HTTP/REST  (JWT Bearer)
+┌─────────────────────────▼────────────────────────────────────────┐
+│              Spring Boot 3.2.3 Backend (Port 8080)               │
+│                  Hexagonal (Ports & Adapters)                     │
+│                                                                   │
+│  adapter/in/web/          adapter/out/persistence/               │
+│  ├── AuthController       ├── BookingRepository (JPA)            │
+│  ├── BookingController    ├── TimeSlotRepository (JPA)           │
+│  └── GlobalExceptionHandler └── OutboxPersistenceAdapter         │
+│                                                                   │
+│  domain/                  adapter/out/kafka/                     │
+│  ├── model/               └── KafkaOutboxPublisher               │
+│  ├── port/out/                                                    │
+│  └── exception/           infrastructure/                        │
+│                           ├── metrics/BookingMetrics             │
+│                           └── security/ (JWT + Redis)            │
+└──────┬──────────────┬────────────────────┬───────────────────────┘
+       │              │                    │
+  ┌────▼────┐   ┌─────▼─────┐   ┌─────────▼────────┐
+  │Postgres │   │  Redis 7  │   │   Apache Kafka    │
+  │   16    │   │           │   │                   │
+  │ Flyway  │   │ JWT black-│   │ booking-events    │
+  │ V1–V9   │   │ list      │   │ topic (Outbox)    │
+  │ JPA +   │   │ Rate lim- │   │ Dead Letter Queue │
+  │ Optimis-│   │ iting     │   │                   │
+  │ tic lock│   │ (Bucket4j)│   └───────────────────┘
+  └─────────┘   └───────────┘
+       │
+  ┌────▼───────────────────┐
+  │  Prometheus + Grafana  │
+  │  Ports 9090 / 3001     │
+  └────────────────────────┘
 ```
 
 ---
 
-## Data Models
+## Frontend
 
-### TimeSlot (canonical shape in Bookings.json)
-```json
-{
-  "startTime": "12:00",
-  "endTime": "12:30",
-  "capacity": 10,
-  "bookedRacers": ["Alice", "Bob"]
-}
-```
+### Design System — Tron/Synthwave Arcade
+- **Palette**: `--bg #060614`, `--surface #0d0d2b`, `--cyan #00CFFF`, `--pink #FF2D6B`, `--green #7FFF00`, `--dim #4a4a7a`
+- **Fonts**: Orbitron (display) via `font-orbitron` class · DM Mono (data) via `font-mono` class
+- **Tailwind**: loaded via `postcss.config.js` → `tailwind.config.js` (content paths: `app/**`, `components/**`)
 
-### User (canonical shape in loginData.json)
-```json
-{
-  "username": "krish",
-  "password": "$2a$10$..."
-}
-```
+### State Management
+| Layer | Tool | Responsibility |
+|-------|------|----------------|
+| Auth state | Zustand + `persist` | token, username, login/logout actions; `hasHydrated` flag gates redirects |
+| Server state | TanStack Query v5 | time slots, user bookings; auto-invalidation on mutation |
+| Local UI | React `useState` | modal open/close, selected date, racer count |
+
+### Auth Flow
+1. Landing page (`app/page.tsx`) → inline Sign In / New Player tabs (no modal)
+2. POST `/api/auth/login` → `{ token, refreshToken, username }`
+3. Token stored in Zustand persisted store (localStorage); `hasHydrated` prevents flash redirect
+4. Dashboard polls `hasHydrated` before checking auth; redirect to `/` if unauthenticated
+5. Refresh token: POST `/api/auth/refresh` · Logout: POST `/api/auth/logout` (blacklists token in Redis)
+
+### Booking Flow
+1. Dashboard loads: `GET /api/timeslots?date=YYYY-MM-DD` → TanStack Query cache
+2. User opens BookingModal → selects racer count + names → POST `/api/bookings`
+3. On success: toast "SLOT BOOKED", invalidate slots + bookings queries, capacity updates
+4. Cancel: `DELETE /api/bookings/{id}` → invalidate queries
 
 ---
 
-## Deployment
+## Backend
 
-| Component | Platform | Config File |
-|-----------|----------|-------------|
-| Frontend | Vercel | `vercel.json` |
-| Backend | Standalone JAR | `backend/pom.xml` |
-| Legacy GUI | Local only | — |
+### Hexagonal Architecture Layers
+```
+adapter/in/web/          ← REST controllers (inbound)
+application/             ← Use case services (orchestration)
+domain/                  ← Pure Java; no Spring; no JPA
+  model/                 ← Booking, TimeSlot, User, OutboxEvent
+  port/out/              ← BookingMetricsPort (interface)
+  exception/             ← SlotFullException, DuplicateBookingException, etc.
+  event/                 ← BookingEvent, SlotAvailabilityChangedEvent
+adapter/out/persistence/ ← JPA entities + repositories (outbound)
+adapter/out/kafka/       ← KafkaOutboxPublisher (outbound)
+infrastructure/          ← metrics, security (not domain, not adapter)
+```
 
-Environment variable `BACKEND_URL` must be set for frontend → backend communication.
+ArchUnit enforces these boundaries (4 tests, all passing).
+
+### API Endpoints
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| POST | `/api/auth/register` | No | Rate-limited (5/15min per IP) |
+| POST | `/api/auth/login` | No | Rate-limited; intentionally vague error on bad creds |
+| POST | `/api/auth/refresh` | No | Redis-backed refresh token rotation |
+| POST | `/api/auth/logout` | Yes | Blacklists access token in Redis |
+| GET | `/api/timeslots` | Yes | `?date=YYYY-MM-DD`; returns slots with capacity |
+| POST | `/api/bookings` | Yes | Creates booking; `X-Idempotency-Key` header supported |
+| GET | `/api/bookings` | Yes | User's own bookings |
+| DELETE | `/api/bookings/{id}` | Yes | Cancel booking (sets status=CANCELLED) |
+
+### Error Responses
+All errors are RFC 7807 ProblemDetail: `type`, `title`, `status`, `detail`, `traceId`.
+`GlobalExceptionHandler` maps domain exceptions → HTTP status codes.
+
+### Concurrency & Correctness
+- **Optimistic locking**: `@Version` on `TimeSlotEntity` prevents double-booking race conditions
+- **Partial unique index** (`V9`): `uq_bookings_user_slot_date WHERE status = 'CONFIRMED'` — cancelled bookings don't block re-booking
+- **Idempotency**: `uq_bookings_idempotency_key` prevents duplicate bookings on client retry
+- **Group booking**: `racer_count` drains capacity (SUM, not COUNT); `racer_names` stored as JSONB array
+- **Transactional Outbox**: Booking + OutboxEvent written in one DB transaction; Kafka publish is async via scheduler
+
+### Security
+- JWT: 15-min access tokens + 7-day refresh tokens
+- Redis blacklist: logout invalidates access token before expiry
+- Rate limiting: Bucket4j + Redis distributed buckets (5 req / 15 min on auth endpoints)
+- BCrypt password hashing
+
+---
+
+## Infrastructure (Docker Compose)
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| `postgres` | 5432 | Primary database; Flyway migrations V1–V9 |
+| `redis` | 6379 | JWT blacklist + Bucket4j rate limiting |
+| `kafka` | 9092 | Booking events (Transactional Outbox) |
+| `kafka-ui` | 8081 | Kafka topic browser |
+| `app` | 8080 | Spring Boot backend (multi-stage Dockerfile) |
+| `prometheus` | 9090 | Metrics scraping |
+| `grafana` | 3001 | Dashboards |
+
+Frontend runs separately: `npm run dev` → port 3000.
+
+---
+
+## Database Schema (key tables)
+
+```sql
+users           — id, username, password_hash, role, created_at
+time_slots      — id, start_time, end_time, capacity, version (optimistic lock)
+bookings        — id, user_id, time_slot_id, booking_date, status, racer_count,
+                  racer_names (JSONB), idempotency_key, created_at
+outbox_events   — id, aggregate_type, aggregate_id, event_type, payload (JSONB),
+                  published, created_at
+```
+
+Flyway migration history: V1 (schema) → V9 (partial unique index on bookings).

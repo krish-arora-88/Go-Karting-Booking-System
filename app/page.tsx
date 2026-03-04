@@ -54,7 +54,7 @@ export default function HomePage() {
     <div className="relative min-h-screen overflow-hidden flex flex-col" style={{ background: 'var(--bg)' }}>
 
       {/* Hero content */}
-      <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-4 pb-[42%]">
+      <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-4">
 
         {/* Logo */}
         <div className="mb-8 text-center">

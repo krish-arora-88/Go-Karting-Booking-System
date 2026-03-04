@@ -152,6 +152,52 @@ body::after {
   color: var(--dim);
 }
 
+/* ── Button variants ─────────────────────────────────── */
+.btn-cyan {
+  background: var(--cyan);
+  color: var(--bg);
+  padding: 0.625rem 1.5rem;
+}
+.btn-cyan:hover:not(:disabled) {
+  background: var(--cyan);
+  color: var(--bg);
+  box-shadow: 0 0 16px var(--cyan);
+  transform: translateY(-1px);
+}
+.btn-pink-ghost {
+  border: 1px solid var(--pink);
+  color: var(--pink);
+  background: transparent;
+  padding: 0.625rem 1.5rem;
+}
+.btn-pink-ghost:hover:not(:disabled) {
+  background: var(--pink);
+  color: var(--bg);
+  box-shadow: 0 0 12px var(--pink);
+}
+.btn-dim-ghost {
+  border: 1px solid var(--dim);
+  color: var(--dim);
+  background: transparent;
+  padding: 0.5rem 1rem;
+}
+.btn-dim-ghost:hover:not(:disabled) {
+  border-color: var(--white);
+  color: var(--white);
+  background: transparent;
+}
+.btn-outline {
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+  background: transparent;
+  padding: 0.625rem 1.5rem;
+}
+.btn-outline:hover:not(:disabled) {
+  background: var(--cyan);
+  color: var(--bg);
+  box-shadow: 0 0 12px var(--cyan);
+}
+
 /* ── Capacity bar ────────────────────────────────────── */
 .capacity-bar-track {
   height: 4px;

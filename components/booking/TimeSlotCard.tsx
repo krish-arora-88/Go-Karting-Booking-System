@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { TimeSlot } from '@/services/bookingService'
 
@@ -9,9 +10,13 @@ interface TimeSlotCardProps {
   onCancel?: () => void
   type: 'available' | 'booked'
   isPending?: boolean
+  bookingDate?: string
+  racerNames?: string[]
 }
 
-export function TimeSlotCard({ timeSlot, onBook, onCancel, type, isPending }: TimeSlotCardProps) {
+export function TimeSlotCard({ timeSlot, onBook, onCancel, type, isPending, bookingDate, racerNames }: TimeSlotCardProps) {
+  const [showRacers, setShowRacers] = useState(false)
+
   const isFull = timeSlot.remaining === 0
   const filled = timeSlot.capacity - timeSlot.remaining
   const fillPct = timeSlot.capacity > 0 ? Math.round((filled / timeSlot.capacity) * 100) : 0
@@ -64,6 +69,11 @@ export function TimeSlotCard({ timeSlot, onBook, onCancel, type, isPending }: Ti
         <div className="font-mono text-xs mt-0.5" style={{ color: 'var(--dim)' }}>
           — {timeSlot.endTime}
         </div>
+        {type === 'booked' && bookingDate && (
+          <div className="font-mono text-[10px] mt-1 tracking-wider" style={{ color: 'var(--dim)' }}>
+            {new Date(bookingDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+          </div>
+        )}
       </div>
 
       {/* Capacity bar */}
@@ -77,6 +87,31 @@ export function TimeSlotCard({ timeSlot, onBook, onCancel, type, isPending }: Ti
           </span>
         </div>
       </div>
+
+      {/* View Racers (booked only) */}
+      {type === 'booked' && racerNames && racerNames.length > 0 && (
+        <div className="mb-3">
+          <button
+            type="button"
+            onClick={() => setShowRacers(v => !v)}
+            className="font-mono text-[10px] tracking-widest transition-colors flex items-center gap-1"
+            style={{ color: 'var(--dim)' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--cyan)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--dim)')}
+          >
+            {showRacers ? '▾' : '▸'} VIEW RACERS ({racerNames.length})
+          </button>
+          {showRacers && (
+            <ul className="mt-2 space-y-0.5 pl-3 border-l" style={{ borderColor: 'var(--border)' }}>
+              {racerNames.map((name, i) => (
+                <li key={i} className="font-mono text-[10px]" style={{ color: 'var(--white)' }}>
+                  {String(i + 1).padStart(2, '0')} {name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Action */}
       {type === 'available' && onBook && (

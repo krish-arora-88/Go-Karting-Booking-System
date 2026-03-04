@@ -6,7 +6,7 @@ WORKDIR /app
 COPY pom.xml .
 COPY src ./src
 # Download dependencies separately for better layer caching
-RUN --mount=type=cache,target=/root/.m2 \
+RUN --mount=type=cache,id=maven-repo,target=/root/.m2 \
     apk add --no-cache maven && \
     mvn dependency:go-offline -q && \
     mvn package -DskipTests -q

@@ -43,8 +43,8 @@ export function TimeSlotCard({ timeSlot, onBook, onCancel, type, isPending }: Ti
           </span>
         )}
         {type === 'available' && isFull && (
-          <span className="flex items-center gap-1 font-mono text-[10px] tracking-widest text-red-400">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-400" />
+          <span className="flex items-center gap-1 font-mono text-[10px] tracking-widest" style={{ color: 'var(--pink)' }}>
+            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'var(--pink)' }} />
             FULL
           </span>
         )}

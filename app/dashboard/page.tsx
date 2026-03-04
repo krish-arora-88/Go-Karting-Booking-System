@@ -32,7 +32,7 @@ export default function DashboardPage() {
   const { isAuthenticated, user, hasHydrated } = useAuthStore();
   const DATE_STRIP = useMemo(() => buildDateStrip(), []);
   const [activeTab, setActiveTab] = useState<Tab>('available');
-  const [selectedDate, setSelectedDate] = useState(() => buildDateStrip()[0].value);
+  const [selectedDate, setSelectedDate] = useState(() => DATE_STRIP[0].value);
   const [bookingSlot, setBookingSlot] = useState<TimeSlot | null>(null);
 
   useEffect(() => {
@@ -218,7 +218,7 @@ export default function DashboardPage() {
           )}
 
           {/* Content */}
-          {(slotsLoading || bookingsLoading) ? (
+          {(activeTab === 'available' ? slotsLoading : bookingsLoading) ? (
             <div className="flex justify-center py-16">
               <div className="w-8 h-8 rounded-full border-t border-r animate-spin" style={{ borderColor: 'var(--cyan)' }} />
             </div>

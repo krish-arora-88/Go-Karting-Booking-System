@@ -35,7 +35,7 @@ body::after {
     rgba(0, 0, 0, 0.04) 4px
   );
   pointer-events: none;
-  z-index: 9999;
+  z-index: 100;
 }
 
 /* ── Perspective grid floor ──────────────────────────── */
@@ -60,7 +60,7 @@ body::after {
   background-size: 60px 60px;
   transform: rotateX(65deg);
   transform-origin: center top;
-  animation: gridScroll 2.5s linear infinite;
+  animation: gridScroll 20s linear infinite;
 }
 
 @keyframes gridScroll {

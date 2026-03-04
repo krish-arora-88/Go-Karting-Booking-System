@@ -41,7 +41,7 @@ export function BookingModal({ slot, date, isPending, onConfirm, onClose }: Book
   const allFilled = racerNames.every(n => n.trim().length > 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(6,6,20,0.85)' }}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(6,6,20,0.85)' }}>
       <div
         className="relative w-full max-w-md p-6"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
@@ -64,6 +64,7 @@ export function BookingModal({ slot, date, isPending, onConfirm, onClose }: Book
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="transition-colors"
             style={{ color: 'var(--dim)' }}

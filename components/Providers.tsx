@@ -23,7 +23,18 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      <Toaster position="top-right" />
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: 'var(--surface)',
+            color: 'var(--white)',
+            border: '1px solid var(--border)',
+            fontFamily: 'var(--font-dm-mono), monospace',
+            fontSize: '12px',
+          },
+        }}
+      />
       {process.env.NODE_ENV === 'development' && (
         <ReactQueryDevtools initialIsOpen={false} />
       )}

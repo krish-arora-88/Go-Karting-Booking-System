@@ -6,9 +6,7 @@ WORKDIR /app
 COPY pom.xml .
 COPY src ./src
 # Download dependencies separately for better layer caching
-RUN --mount=type=cache,id=maven-repo,target=/root/.m2 \
-    apk add --no-cache maven && \
-    mvn dependency:go-offline -q && \
+RUN apk add --no-cache maven && \
     mvn package -DskipTests -q
 
 FROM eclipse-temurin:21-jre-alpine

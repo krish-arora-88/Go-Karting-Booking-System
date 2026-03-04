@@ -22,6 +22,9 @@ public class RedisConfig {
     @Value("${spring.data.redis.port}")
     private int redisPort;
 
+    @Value("${spring.data.redis.password:}")
+    private String redisPassword;
+
     @Bean
     public StringRedisTemplate stringRedisTemplate(RedisConnectionFactory factory) {
         var template = new StringRedisTemplate();
@@ -35,9 +38,11 @@ public class RedisConfig {
     /** Lettuce-based proxy manager for Bucket4j distributed rate limiting. */
     @Bean
     public LettuceBasedProxyManager<String> lettuceProxyManager() {
-        RedisClient client = RedisClient.create(
-                RedisURI.builder().withHost(redisHost).withPort(redisPort).build()
-        );
+        var uriBuilder = RedisURI.builder().withHost(redisHost).withPort(redisPort);
+        if (redisPassword != null && !redisPassword.isBlank()) {
+            uriBuilder.withPassword(redisPassword.toCharArray());
+        }
+        RedisClient client = RedisClient.create(uriBuilder.build());
         // Mixed codec: String keys (for readability in Redis) + byte[] values (required by Bucket4j)
         var connection = client.connect(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE));
         return LettuceBasedProxyManager.builderFor(connection).build();

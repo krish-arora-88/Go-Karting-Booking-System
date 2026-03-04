@@ -1,0 +1,179 @@
+{
+  "__requires": [
+    {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0"},
+    {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"},
+    {"type": "panel", "id": "timeseries", "name": "Time series", "version": ""},
+    {"type": "panel", "id": "stat", "name": "Stat", "version": ""}
+  ],
+  "annotations": {"list": [{"builtIn": 1, "datasource": {"type": "grafana", "uid": "-- Grafana --"}, "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard"}]},
+  "description": "Go Karting Booking Platform — Business & Infrastructure Metrics",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 50}, {"color": "red", "value": 100}]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "title": "Bookings Today",
+      "type": "stat",
+      "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(increase(bookings_created_total[24h]))", "legendFormat": "bookings", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "title": "Slot Full Errors (1h)",
+      "type": "stat",
+      "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(increase(bookings_slot_full_total[1h]))", "legendFormat": "slot full", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 7}, {"color": "red", "value": 10}]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+      "id": 3,
+      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "title": "Active DB Connections",
+      "type": "stat",
+      "targets": [{"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "hikaricp_connections_active{application=\"gokarting-booking-service\"}", "legendFormat": "active", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "fillOpacity": 10, "gradientMode": "none", "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false},
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "id": 4,
+      "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "none"}},
+      "title": "Booking Rate",
+      "type": "timeseries",
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "rate(bookings_created_total[5m])", "legendFormat": "created/s", "refId": "A"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "rate(bookings_cancelled_total[5m])", "legendFormat": "cancelled/s", "refId": "B"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "rate(bookings_slot_full_total[5m])", "legendFormat": "slot-full/s", "refId": "C"}
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "fillOpacity": 10, "gradientMode": "none", "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false},
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "id": 5,
+      "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "none"}},
+      "title": "Booking Endpoint Latency",
+      "type": "timeseries",
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.50, rate(bookings_request_duration_seconds_bucket[5m]))", "legendFormat": "P50", "refId": "A"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.95, rate(bookings_request_duration_seconds_bucket[5m]))", "legendFormat": "P95", "refId": "B"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.99, rate(bookings_request_duration_seconds_bucket[5m]))", "legendFormat": "P99", "refId": "C"}
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "fillOpacity": 10, "gradientMode": "none", "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false},
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "id": 6,
+      "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "none"}},
+      "title": "JVM Memory Usage",
+      "type": "timeseries",
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "jvm_memory_used_bytes{application=\"gokarting-booking-service\", area=\"heap\"}", "legendFormat": "heap used", "refId": "A"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "jvm_memory_max_bytes{application=\"gokarting-booking-service\", area=\"heap\"}", "legendFormat": "heap max", "refId": "B"}
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "fillOpacity": 10, "gradientMode": "none", "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false},
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "id": 7,
+      "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "none"}},
+      "title": "HTTP Request Rate by Status",
+      "type": "timeseries",
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (status) (rate(http_server_requests_seconds_count{application=\"gokarting-booking-service\"}[5m]))", "legendFormat": "{{status}}", "refId": "A"}
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "fillOpacity": 10, "gradientMode": "none", "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+      "id": 8,
+      "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "none"}},
+      "title": "Kafka Consumer Lag",
+      "type": "timeseries",
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "kafka_consumer_fetch_manager_records_lag{application=\"gokarting-booking-service\"}", "legendFormat": "{{topic}} [{{partition}}]", "refId": "A"}
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["go-karting", "bookings"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Go Karting Bookings",
+  "uid": "gokarting-bookings",
+  "version": 1
+}

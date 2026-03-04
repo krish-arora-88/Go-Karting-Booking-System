@@ -1,10 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  images: {
-    domains: ['localhost'],
+  experimental: {
+    appDir: true,
   },
   env: {
-    JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+    BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8080',
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${process.env.BACKEND_URL || 'http://localhost:8080'}/api/:path*`,
+      },
+    ]
   },
 }
 

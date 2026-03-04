@@ -1,0 +1,27 @@
+# Testcontainers overrides all URLs via @DynamicPropertySource — these are fallback defaults
+spring:
+  flyway:
+    enabled: true
+  jpa:
+    show-sql: true
+
+app:
+  jwt:
+    secret: test-secret-key-long-enough-for-testing-purposes-hs512-algorithm
+    access-token-expiry-ms: 60000
+    refresh-token-expiry-seconds: 120
+
+  rate-limit:
+    auth-requests-per-window: 100   # disable effective rate limiting in tests
+    auth-window-minutes: 1
+    booking-requests-per-minute: 100
+
+  outbox:
+    poll-interval-ms: 200
+    batch-size: 10
+
+logging:
+  level:
+    com.gokarting: DEBUG
+    org.springframework.kafka: WARN
+    org.testcontainers: WARN

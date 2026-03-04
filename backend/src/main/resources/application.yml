@@ -1,0 +1,122 @@
+spring:
+  application:
+    name: gokarting-booking-service
+
+  threads:
+    virtual:
+      enabled: true   # Java 21 Project Loom — Tomcat uses virtual threads
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:gokarting}
+    username: ${DB_USER:app}
+    password: ${DB_PASSWORD:secret}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate   # Flyway owns the schema — Hibernate only validates
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        default_schema: public
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all                   # wait for all ISR replicas
+      retries: 3
+      properties:
+        enable.idempotence: true  # exactly-once producer semantics
+        max.in.flight.requests.per.connection: 1
+    consumer:
+      group-id: gokarting-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.gokarting.*"
+
+# ===== ACTUATOR / OBSERVABILITY =====
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        bookings.request.duration: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+  info:
+    git:
+      mode: full
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: Go Karting Booking Platform
+
+# ===== SPRINGDOC / OPENAPI =====
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    disable-swagger-default-url: true
+
+# ===== APP-SPECIFIC =====
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-production-use-at-least-64-chars-for-hs512-algorithm}
+    access-token-expiry-ms: 900000        # 15 minutes
+    refresh-token-expiry-seconds: 604800  # 7 days
+
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+
+  rate-limit:
+    auth-requests-per-window: 5
+    auth-window-minutes: 15
+    booking-requests-per-minute: 20
+
+  outbox:
+    poll-interval-ms: 500
+    batch-size: 50
+
+  kafka:
+    topics:
+      booking-events: gokarting.booking.events
+      notification-requests: gokarting.notification.requests

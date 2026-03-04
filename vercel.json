@@ -2,7 +2,7 @@
   "name": "apex-racing-gokarting",
   "build": {
     "env": {
-      "NEXT_PUBLIC_API_URL": "https://apex-racing-api-production.up.railway.app"
+      "NEXT_PUBLIC_API_URL": "https://apex-racing-api.fly.dev"
     }
   }
 }

@@ -2,44 +2,171 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens ───────────────────────────────────── */
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --bg:      #060614;
+  --surface: #0d0d2b;
+  --border:  rgba(0, 207, 255, 0.2);
+  --cyan:    #00CFFF;
+  --pink:    #FF2D6B;
+  --green:   #7FFF00;
+  --dim:     #4a4a7a;
+  --white:   #E8F4FF;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+/* ── Base ────────────────────────────────────────────── */
+html, body {
+  background-color: var(--bg);
+  color: var(--white);
+  font-family: var(--font-dm-mono), monospace;
+  min-height: 100vh;
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+/* ── Scanline overlay ────────────────────────────────── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.04) 2px,
+    rgba(0, 0, 0, 0.04) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
 }
 
-@layer components {
-  .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
-  }
-  
-  .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
-  }
-  
-  .card {
-    @apply bg-white rounded-lg shadow-md p-6 border border-gray-200;
-  }
-  
-  .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500;
-  }
-} 
+/* ── Perspective grid floor ──────────────────────────── */
+.grid-floor-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 42%;
+  perspective: 220px;
+  overflow: hidden;
+}
+
+.grid-floor-inner {
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  left: -50%;
+  background-image:
+    linear-gradient(rgba(0, 207, 255, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 207, 255, 0.12) 1px, transparent 1px);
+  background-size: 60px 60px;
+  transform: rotateX(65deg);
+  transform-origin: center top;
+  animation: gridScroll 2.5s linear infinite;
+}
+
+@keyframes gridScroll {
+  from { background-position: 0 0; }
+  to   { background-position: 0 60px; }
+}
+
+/* ── Neon glow utilities ─────────────────────────────── */
+.neon-cyan {
+  box-shadow: 0 0 8px var(--cyan), 0 0 24px rgba(0, 207, 255, 0.25);
+}
+.neon-pink {
+  box-shadow: 0 0 8px var(--pink), 0 0 24px rgba(255, 45, 107, 0.25);
+}
+.text-neon-cyan {
+  text-shadow: 0 0 10px rgba(0, 207, 255, 0.6);
+}
+
+/* ── Corner bracket decoration ───────────────────────── */
+.bracket-corner {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-color: var(--cyan);
+  border-style: solid;
+  opacity: 0.7;
+}
+.bracket-corner.tl { top: 0;    left: 0;  border-width: 1px 0 0 1px; }
+.bracket-corner.tr { top: 0;    right: 0; border-width: 1px 1px 0 0; }
+.bracket-corner.bl { bottom: 0; left: 0;  border-width: 0 0 1px 1px; }
+.bracket-corner.br { bottom: 0; right: 0; border-width: 0 1px 1px 0; }
+
+/* ── Status dot pulse ────────────────────────────────── */
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.pulse-dot {
+  animation: dotPulse 1.6s ease-in-out infinite;
+}
+
+/* ── Fetch indicator pulse ───────────────────────────── */
+@keyframes fetchPulse {
+  0%, 100% { box-shadow: 0 0 4px var(--cyan); opacity: 0.6; }
+  50%       { box-shadow: 0 0 12px var(--cyan); opacity: 1; }
+}
+.fetch-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cyan);
+  animation: fetchPulse 1s ease-in-out infinite;
+}
+
+/* ── Sidebar nav active bar ──────────────────────────── */
+.nav-item-active {
+  border-left: 2px solid var(--cyan);
+  color: var(--cyan);
+  text-shadow: 0 0 8px rgba(0, 207, 255, 0.5);
+  background: rgba(0, 207, 255, 0.05);
+}
+.nav-item-inactive {
+  border-left: 2px solid transparent;
+  color: var(--dim);
+}
+.nav-item-inactive:hover {
+  color: var(--white);
+  border-left-color: rgba(0, 207, 255, 0.3);
+}
+
+/* ── Input field ─────────────────────────────────────── */
+.tron-input {
+  background: rgba(13, 13, 43, 0.8);
+  border: 0;
+  border-bottom: 1px solid var(--dim);
+  color: var(--white);
+  font-family: var(--font-dm-mono), monospace;
+  font-size: 0.875rem;
+  padding: 0.5rem 0;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.tron-input:focus {
+  border-bottom-color: var(--cyan);
+  box-shadow: 0 2px 0 0 rgba(0, 207, 255, 0.3);
+}
+.tron-input::placeholder {
+  color: var(--dim);
+}
+
+/* ── Capacity bar ────────────────────────────────────── */
+.capacity-bar-track {
+  height: 4px;
+  background: rgba(74, 74, 122, 0.4);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.capacity-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  transition: width 0.4s ease;
+}
+.capacity-bar-fill.full {
+  background: var(--pink);
+  box-shadow: 0 0 6px var(--pink);
+}

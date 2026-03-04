@@ -1,6 +1,6 @@
 {
   "name": "apex-racing-gokarting",
   "env": {
-    "NEXT_PUBLIC_BACKEND_URL": "https://your-backend-url.railway.app"
+    "NEXT_PUBLIC_API_URL": "https://your-backend-url.railway.app"
   }
 }

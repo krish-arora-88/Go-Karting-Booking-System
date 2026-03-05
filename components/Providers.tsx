@@ -33,6 +33,16 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             fontFamily: 'var(--font-dm-mono), monospace',
             fontSize: '12px',
           },
+          error: {
+            style: {
+              border: '1px solid var(--pink)',
+            },
+          },
+          success: {
+            style: {
+              border: '1px solid var(--cyan)',
+            },
+          },
         }}
       />
       {process.env.NODE_ENV === 'development' && (

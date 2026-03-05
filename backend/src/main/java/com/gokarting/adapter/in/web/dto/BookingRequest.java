@@ -11,7 +11,7 @@ public record BookingRequest(
         @NotNull @Schema(description = "UUID of the time slot to book")
         UUID timeSlotId,
 
-        @NotNull @FutureOrPresent @Schema(description = "Date to book the slot for", example = "2024-06-15")
+        @NotNull @Schema(description = "Date to book the slot for", example = "2024-06-15")
         LocalDate bookingDate,
 
         @Min(1) @Max(20) @Schema(description = "Number of racers (seats) to book", example = "2")

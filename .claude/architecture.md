@@ -1,6 +1,47 @@
 # Architecture Overview
 
-> Updated: 2026-03-04. Reflects the fully-transformed distributed system (legacy Java Swing + flat-file JSON is gone).
+> Updated: 2026-03-04. Reflects the fully-transformed distributed system deployed to Fly.io + Vercel.
+
+---
+
+## Production Deployment
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   Vercel (Free Tier)                             │
+│                                                                 │
+│   Next.js 14 Frontend — apex-racing-gokarting.vercel.app        │
+│   Static + Edge Functions · NEXT_PUBLIC_API_URL baked at build  │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │ HTTPS / REST (JWT Bearer)
+┌───────────────────────────▼─────────────────────────────────────┐
+│               Fly.io (Free / Pay-as-you-go)                     │
+│                                                                 │
+│   Spring Boot 3.2.3 — apex-racing-api.fly.dev                   │
+│   shared-cpu-1x · 512MB · auto_stop_machines = "suspend"        │
+│   Profile: no-kafka (Kafka/OutboxPoller disabled)                │
+│                                                                 │
+│   ┌─────────────────┐   ┌──────────────────────────────┐       │
+│   │ Fly Postgres 17  │   │ Upstash Redis (pay-as-you-go)│       │
+│   │ apex-racing-db   │   │ fly-apex-racing-redis         │       │
+│   │ .flycast:5432    │   │ .upstash.io:6379              │       │
+│   │ sslmode=disable  │   │ password-protected            │       │
+│   │ Flyway V1–V9     │   │ JWT blacklist + Bucket4j      │       │
+│   └─────────────────┘   └──────────────────────────────┘       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Local Development
+
+```
+docker compose up              # Postgres, Redis, Kafka, Kafka-UI, Prometheus, Grafana, Spring Boot
+npm run dev                    # Next.js → http://localhost:3000
+
+docker-compose.prod.yml        # Prod-lite: Postgres + Redis + app only (no Kafka)
+                               # Activates SPRING_PROFILES_ACTIVE=no-kafka
+```
 
 ---
 
@@ -23,27 +64,26 @@
 │  ├── BookingController    ├── TimeSlotRepository (JPA)           │
 │  └── GlobalExceptionHandler └── OutboxPersistenceAdapter         │
 │                                                                   │
-│  domain/                  adapter/out/kafka/                     │
-│  ├── model/               └── KafkaOutboxPublisher               │
-│  ├── port/out/                                                    │
-│  └── exception/           infrastructure/                        │
-│                           ├── metrics/BookingMetrics             │
+│  domain/                  infrastructure/                        │
+│  ├── model/               ├── config/KafkaConfig @Profile(!no-kafka)│
+│  ├── port/out/            ├── outbox/OutboxPoller @Profile(!no-kafka)│
+│  └── exception/           ├── metrics/BookingMetrics             │
 │                           └── security/ (JWT + Redis)            │
 └──────┬──────────────┬────────────────────┬───────────────────────┘
-       │              │                    │
+       │              │                    │ (dev only)
   ┌────▼────┐   ┌─────▼─────┐   ┌─────────▼────────┐
   │Postgres │   │  Redis 7  │   │   Apache Kafka    │
-  │   16    │   │           │   │                   │
+  │   16/17 │   │ /Upstash  │   │                   │
   │ Flyway  │   │ JWT black-│   │ booking-events    │
   │ V1–V9   │   │ list      │   │ topic (Outbox)    │
   │ JPA +   │   │ Rate lim- │   │ Dead Letter Queue │
-  │ Optimis-│   │ iting     │   │                   │
+  │ Optimis-│   │ iting     │   │ (disabled in prod)│
   │ tic lock│   │ (Bucket4j)│   └───────────────────┘
   └─────────┘   └───────────┘
        │
   ┌────▼───────────────────┐
   │  Prometheus + Grafana  │
-  │  Ports 9090 / 3001     │
+  │  (dev only: 9090/3001) │
   └────────────────────────┘
 ```
 
@@ -60,7 +100,7 @@
 | Layer | Tool | Responsibility |
 |-------|------|----------------|
 | Auth state | Zustand + `persist` | token, username, login/logout actions; `hasHydrated` flag gates redirects |
-| Server state | TanStack Query v5 | time slots, user bookings; auto-invalidation on mutation |
+| Server state | TanStack Query v5 | time slots, user bookings; auto-invalidation on mutation; refetchInterval: 30s |
 | Local UI | React `useState` | modal open/close, selected date, racer count |
 
 ### Auth Flow
@@ -72,9 +112,10 @@
 
 ### Booking Flow
 1. Dashboard loads: `GET /api/timeslots?date=YYYY-MM-DD` → TanStack Query cache
-2. User opens BookingModal → selects racer count + names → POST `/api/bookings`
-3. On success: toast "SLOT BOOKED", invalidate slots + bookings queries, capacity updates
-4. Cancel: `DELETE /api/bookings/{id}` → invalidate queries
+2. Past slots filtered client-side (slots where `startTime` < now are hidden when today is selected)
+3. User opens BookingModal → selects racer count + names → POST `/api/bookings`
+4. On success: toast "SLOT BOOKED", invalidate slots + bookings queries, capacity updates
+5. Cancel: `DELETE /api/bookings/{id}` → invalidate queries
 
 ---
 
@@ -90,11 +131,16 @@ domain/                  ← Pure Java; no Spring; no JPA
   exception/             ← SlotFullException, DuplicateBookingException, etc.
   event/                 ← BookingEvent, SlotAvailabilityChangedEvent
 adapter/out/persistence/ ← JPA entities + repositories (outbound)
-adapter/out/kafka/       ← KafkaOutboxPublisher (outbound)
-infrastructure/          ← metrics, security (not domain, not adapter)
+infrastructure/          ← metrics, security, config, outbox (not domain, not adapter)
 ```
 
 ArchUnit enforces these boundaries (4 tests, all passing).
+
+### Spring Profiles
+| Profile | Behavior |
+|---------|----------|
+| (default) | Full stack: Kafka + OutboxPoller + all infra |
+| `no-kafka` | Disables `KafkaAutoConfiguration`, skips `KafkaConfig` and `OutboxPoller` beans. Outbox events accumulate in DB but are not forwarded. Used in Fly.io production. |
 
 ### API Endpoints
 | Method | Path | Auth | Notes |
@@ -117,18 +163,20 @@ All errors are RFC 7807 ProblemDetail: `type`, `title`, `status`, `detail`, `tra
 - **Partial unique index** (`V9`): `uq_bookings_user_slot_date WHERE status = 'CONFIRMED'` — cancelled bookings don't block re-booking
 - **Idempotency**: `uq_bookings_idempotency_key` prevents duplicate bookings on client retry
 - **Group booking**: `racer_count` drains capacity (SUM, not COUNT); `racer_names` stored as JSONB array
-- **Transactional Outbox**: Booking + OutboxEvent written in one DB transaction; Kafka publish is async via scheduler
+- **Transactional Outbox**: Booking + OutboxEvent written in one DB transaction; Kafka publish is async via scheduler (dev only)
 
 ### Security
 - JWT: 15-min access tokens + 7-day refresh tokens
 - Redis blacklist: logout invalidates access token before expiry
 - Rate limiting: Bucket4j + Redis distributed buckets (5 req / 15 min on auth endpoints)
 - BCrypt password hashing
+- Redis password support: `RedisConfig.lettuceProxyManager()` reads `spring.data.redis.password` for authenticated connections
 
 ---
 
-## Infrastructure (Docker Compose)
+## Infrastructure
 
+### Local Dev (docker-compose.yml)
 | Service | Port | Purpose |
 |---------|------|---------|
 | `postgres` | 5432 | Primary database; Flyway migrations V1–V9 |
@@ -138,6 +186,9 @@ All errors are RFC 7807 ProblemDetail: `type`, `title`, `status`, `detail`, `tra
 | `app` | 8080 | Spring Boot backend (multi-stage Dockerfile) |
 | `prometheus` | 9090 | Metrics scraping |
 | `grafana` | 3001 | Dashboards |
+
+### Prod-Lite (docker-compose.prod.yml)
+Postgres + Redis + app only. Requires `DB_PASSWORD` and `JWT_SECRET` env vars. Activates `no-kafka` profile.
 
 Frontend runs separately: `npm run dev` → port 3000.
 

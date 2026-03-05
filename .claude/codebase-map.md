@@ -87,7 +87,7 @@
 | `persistence/OutboxEventJpaRepository.java` | Spring Data JPA repository |
 | `persistence/BookingPersistenceAdapter.java` | Maps domain ↔ JPA entity |
 | `persistence/OutboxPersistenceAdapter.java` | Saves `OutboxEvent` (domain) as `OutboxEventEntity` (JPA) |
-| `kafka/KafkaOutboxPublisher.java` | Scheduler that polls outbox table and publishes to Kafka |
+| `kafka/KafkaOutboxPublisher.java` | Publishes outbox events to Kafka topic (used by OutboxPoller) |
 
 ### Infrastructure
 | File | Purpose |
@@ -96,13 +96,17 @@
 | `infrastructure/security/SecurityConfig.java` | Spring Security filter chain; CORS; BCrypt bean |
 | `infrastructure/security/RateLimitFilter.java` | Bucket4j + Redis distributed rate limiting (5 req/15min on auth) |
 | `infrastructure/metrics/BookingMetrics.java` | Implements `BookingMetricsPort`; Micrometer counters/gauges |
+| `infrastructure/config/KafkaConfig.java` | `@Profile("!no-kafka")` — Kafka producer/consumer config, skipped in prod |
+| `infrastructure/config/RedisConfig.java` | `LettuceBasedProxyManager` for Bucket4j; supports `REDIS_PASSWORD` for authenticated connections |
+| `infrastructure/outbox/OutboxPoller.java` | `@Profile("!no-kafka")` — Scheduled Kafka publisher, skipped in prod |
 
 ### Configuration
 | File | Purpose |
 |------|---------|
-| `backend/src/main/resources/application.yml` | DB URL, Redis, Kafka, JWT secret, Flyway config |
+| `backend/src/main/resources/application.yml` | DB URL, Redis (host/port/password), Kafka, JWT secret, Flyway config |
 | `backend/src/main/resources/application-dev.yml` | Dev overrides |
-| `backend/Dockerfile` | Multi-stage build (Maven build → JRE runtime) |
+| `backend/src/main/resources/application-no-kafka.yml` | Excludes `KafkaAutoConfiguration` — activated by `no-kafka` profile (prod) |
+| `backend/Dockerfile` | Multi-stage build for local docker-compose (context = `./backend`) |
 | `backend/pom.xml` | Spring Boot 3.2.3, Java 21, JJWT 0.12.5, Bucket4j 8.10.1, Lombok 1.18.38, Testcontainers, ArchUnit |
 
 ### Database Migrations (`backend/src/main/resources/db/migration/`)
@@ -131,7 +135,12 @@
 
 | File | Purpose |
 |------|---------|
-| [docker-compose.yml](../docker-compose.yml) | Postgres, Redis, Kafka, Kafka-UI, Spring Boot app, Prometheus, Grafana |
+| [docker-compose.yml](../docker-compose.yml) | Full local dev: Postgres, Redis, Kafka, Kafka-UI, Spring Boot app, Prometheus, Grafana |
+| [docker-compose.prod.yml](../docker-compose.prod.yml) | Prod-lite: Postgres + Redis + app only (no Kafka); activates `no-kafka` profile; requires `DB_PASSWORD`, `JWT_SECRET` |
+| [Dockerfile](../Dockerfile) | Root-context multi-stage build for Fly.io / Railway (uses `backend/` prefixed COPY paths) |
+| [fly.toml](../fly.toml) | Fly.io deployment config: `apex-racing-api`, `iad` region, `suspend` auto-stop, health check on `/actuator/health` |
+| [railway.toml](../railway.toml) | Railway deployment config (kept for reference; primary deployment is Fly.io) |
+| [vercel.json](../vercel.json) | Vercel build config: bakes `NEXT_PUBLIC_API_URL=https://apex-racing-api.fly.dev` at build time |
 | [.github/workflows/ci.yml](../.github/workflows/ci.yml) | CI: build backend (Maven), run tests (Testcontainers), build frontend (npm) |
 
 ---
@@ -144,5 +153,5 @@
 | Backend Java files | ~35 |
 | Flyway migration SQL files | 9 (V1–V9) |
 | Integration + architecture tests | 3 test classes |
-| Config files (root + backend) | ~10 |
+| Config files (root + backend) | ~15 |
 | **Implemented API endpoints** | **8 of 8** ✅ |

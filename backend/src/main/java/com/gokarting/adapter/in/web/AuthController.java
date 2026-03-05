@@ -19,11 +19,14 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Authentication", description = "Register, login, token refresh, and logout")
 public class AuthController {
 
@@ -44,7 +47,7 @@ public class AuthController {
                 new RegisterUserUseCase.RegisterCommand(req.username(), req.email(), req.password()));
 
         String accessToken = jwtService.generateAccessToken(user.getUsername(), user.getRole().name());
-        String refreshToken = refreshTokenService.createRefreshToken(user.getUsername());
+        String refreshToken = tryCreateRefreshToken(user.getUsername());
 
         return AuthResponse.of(accessToken, refreshToken,
                 jwtService.extractExpiryMs(accessToken), user.getUsername(), user.getRole().name());
@@ -63,10 +66,19 @@ public class AuthController {
         }
 
         String accessToken = jwtService.generateAccessToken(user.getUsername(), user.getRole().name());
-        String refreshToken = refreshTokenService.createRefreshToken(user.getUsername());
+        String refreshToken = tryCreateRefreshToken(user.getUsername());
 
         return AuthResponse.of(accessToken, refreshToken,
                 jwtService.extractExpiryMs(accessToken), user.getUsername(), user.getRole().name());
+    }
+
+    private String tryCreateRefreshToken(String username) {
+        try {
+            return refreshTokenService.createRefreshToken(username);
+        } catch (Exception e) {
+            log.warn("Redis unavailable — skipping refresh token for user={}: {}", username, e.getMessage());
+            return "";
+        }
     }
 
     @PostMapping("/refresh")

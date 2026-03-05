@@ -1,12 +1,15 @@
 package com.gokarting.infrastructure.config;
 
 import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
+import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.codec.ByteArrayCodec;
 import io.lettuce.core.codec.RedisCodec;
 import io.lettuce.core.codec.StringCodec;
+import io.lettuce.core.resource.DefaultClientResources;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.data.redis.LettuceClientConfigurationBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -26,6 +29,15 @@ public class RedisConfig {
     private String redisPassword;
 
     @Bean
+    public LettuceClientConfigurationBuilderCustomizer lettuceCustomizer() {
+        return builder -> builder.clientOptions(
+            ClientOptions.builder()
+                .autoReconnect(true)
+                .build()
+        );
+    }
+
+    @Bean
     public StringRedisTemplate stringRedisTemplate(RedisConnectionFactory factory) {
         var template = new StringRedisTemplate();
         template.setConnectionFactory(factory);
@@ -42,8 +54,13 @@ public class RedisConfig {
         if (redisPassword != null && !redisPassword.isBlank()) {
             uriBuilder.withPassword(redisPassword.toCharArray());
         }
-        RedisClient client = RedisClient.create(uriBuilder.build());
-        // Mixed codec: String keys (for readability in Redis) + byte[] values (required by Bucket4j)
+        RedisClient client = RedisClient.create(
+            DefaultClientResources.builder().build(),
+            uriBuilder.build()
+        );
+        client.setOptions(ClientOptions.builder()
+            .autoReconnect(true)
+            .build());
         var connection = client.connect(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE));
         return LettuceBasedProxyManager.builderFor(connection).build();
     }

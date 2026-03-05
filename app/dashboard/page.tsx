@@ -87,7 +87,17 @@ export default function DashboardPage() {
     );
   }
 
-  const availableSlots = slots.filter(s => s.available);
+  const now = new Date();
+  const todayValue = DATE_STRIP[0].value;
+  const availableSlots = slots.filter(s => {
+    if (!s.available) return false;
+    if (selectedDate !== todayValue) return true;
+    // For today, hide slots whose start time has already passed
+    const [h, m] = s.startTime.split(':').map(Number);
+    const slotStart = new Date(now);
+    slotStart.setHours(h, m, 0, 0);
+    return slotStart > now;
+  });
 
   const navItems: { tab: Tab; icon: React.ReactNode; label: string; count?: number }[] = [
     { tab: 'available', icon: <Zap size={14} />, label: 'SLOTS' },

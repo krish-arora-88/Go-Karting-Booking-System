@@ -1,0 +1,12 @@
+environment              = "prod"
+region                   = "ca-west-1"
+app_name                 = "gokarting"
+db_instance_class        = "db.t3.small"
+db_allocated_storage     = 50
+db_multi_az              = true
+redis_node_type          = "cache.t3.small"
+redis_num_cache_clusters = 2
+ecs_task_cpu             = 512
+ecs_task_memory          = 1024
+ecs_desired_count        = 2
+cors_origins             = "https://apex-gokarting.vercel.app"

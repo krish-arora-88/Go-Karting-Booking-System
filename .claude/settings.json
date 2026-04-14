@@ -11,5 +11,29 @@
     "superpowers@claude-plugins-official": true,
     "vercel@claude-plugins-official": true,
     "playwright@claude-plugins-official": true
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=$(echo \"$CLAUDE_TOOL_INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('file_path',''))\" 2>/dev/null); [[ \"$file\" == *.tf ]] && terraform fmt \"$(dirname \"$file\")\" 2>/dev/null; exit 0"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=$(echo \"$CLAUDE_TOOL_INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('file_path',''))\" 2>/dev/null); if [[ \"$file\" == *.tfstate* ]] || [[ \"$file\" == */.terraform/* ]]; then echo 'ERROR: Direct edits to .tfstate files and .terraform/ directories are blocked. Use terraform commands instead.' >&2; exit 1; fi"
+          }
+        ]
+      }
+    ]
   }
 }

@@ -21,6 +21,20 @@
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+    "aws": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["awslabs.aws-mcp-servers@latest"],
+      "env": {
+        "AWS_PROFILE": "${AWS_PROFILE:default}",
+        "AWS_REGION": "${AWS_REGION:us-east-1}"
+      }
     }
   }
 }
